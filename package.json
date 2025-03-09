@@ -11,6 +11,7 @@
     "karabiner.ts": "latest",
     "prettier": "^2",
     "tsx": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "cmd-ts": "^0.13.0"
   }
 }
