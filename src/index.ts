@@ -5,17 +5,13 @@ import {
   writeToProfile,
   FromKeyCode,
   Manipulator,
-  withCondition,
   ToKeyCode,
   KeyCode,
-  ifVar,
   mapDoubleTap,
-  mapSimultaneous,
   FromKeyParam,
 } from 'karabiner.ts'
 
 import { command, run, option, flag, string, binary } from 'cmd-ts'
-import { findConfigFile, TupleType } from 'typescript'
 
 const cmd = command({
   name: 'kbts',
