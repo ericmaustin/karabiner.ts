@@ -173,7 +173,7 @@ const getKeyMap = (
 
 const modTap = (args: ModTapArgs): Manipulator => {
   let argv = {
-    timeout: 100,
+    timeout: 200,
     prioritize: 'tap',
     ...args,
   }
@@ -276,7 +276,7 @@ const main = (profile: string) => {
         tap: 'spacebar',
         mod: 'left_shift',
         prioritize: 'mod',
-        timeout: 50,
+        timeout: 100,
       }),
     ]),
 
