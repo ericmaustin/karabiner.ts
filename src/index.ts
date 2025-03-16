@@ -3,12 +3,12 @@ import {
   map,
   rule,
   writeToProfile,
-  FromKeyCode,
   Manipulator,
   ToKeyCode,
   KeyCode,
-  mapDoubleTap,
   FromKeyParam,
+  FromModifierParam,
+  ToKeyParam,
 } from 'karabiner.ts'
 
 import { command, run, option, flag, string, binary } from 'cmd-ts'
@@ -39,34 +39,51 @@ const cmd = command({
 })
 
 const homeRowModArr = [
-  ['a', 'left_control'],
-  ['s', 'left_option'],
-  ['d', 'left_command'],
-  ['f', 'left_shift'],
-  ['j', 'right_shift'],
-  ['k', 'right_command'],
-  ['l', 'right_option'],
-  ['semicolon', 'right_control'],
-  ['g', 'Hyper'],
-  ['h', 'Hyper'],
-  // ['n', 'Meh'],
-  // ['b', 'Meh'],
-] as ReadonlyArray<[FromKeyCode, ToKeyCode]>
+  // spacebar to shift
+  ['spacebar', 'left_shift'],
+  // left hand
+  // hyper, ctrl, option, command, meh
+  ['a', 'Hyper'],
+  ['s', 'left_control'],
+  ['d', 'left_option'],
+  ['f', 'left_command'],
+  ['g', 'Meh'],
+  // right hand
+  // meh, command, option, ctrl, hyper
+  ['h', 'Meh'],
+  ['j', 'right_command'],
+  ['k', 'right_option'],
+  ['l', 'right_control'],
+  ['semicolon', 'Hyper'],
+] as ReadonlyArray<[KeyCode, KeyCode | 'Hyper' | 'Meh']>
 
-const hyperMapArr = [
-  ['h', 'left_arrow'],
-  ['j', 'down_arrow'],
-  ['k', 'up_arrow'],
-  ['l', 'right_arrow'],
-  ['w', 'up_arrow'],
-  ['a', 'left_arrow'],
-  ['s', 'down_arrow'],
-  ['d', 'right_arrow'],
-  ['[', 'home'],
-  [']', 'end'],
-] as ReadonlyArray<[FromKeyCode, ToKeyCode]>
+const symbolMapArr = [
+  // homerow brackets
+  ['h', '('],
+  ['j', ')'],
+  ['k', '['],
+  ['l', ']'],
+  [';', '{'],
+  ["'", '}'],
+  ['.', ':'],
+  // semantic symbols
+  ['h', '#'], // h for hash
+  ['m', '$'], // m for money
+  ['/', '\\'], // / for backslash
+  ['a', '+'], // a for add
+  ['s', '*'], // s for star
+  ['d', '-'], // d for dash
+  ['f', '='], // f for ... fequals
+  ['b', '|'], // b for bar
+  ['g', '&'], // g for gr-and
+  ['t', '`'], // t for tick
+  ['e', '!'], // e for exclamation
+  ['p', '%'], // p for percent
+  ['c', '^'], // c for carrot
+  ['u', '_'], // u for underscore
+] as ReadonlyArray<[FromKeyParam, string]>
 
-const symbolLayerArr = [
+const pasteMapArr = [
   ['spacebar', '␣'],
   ['return_or_enter', '⏎'],
   ['tab', '⇥'],
@@ -95,6 +112,46 @@ const symbolLayerArr = [
   ['grave_accent_and_tilde', '≈'],
 ] as ReadonlyArray<[FromKeyParam, string]>
 
+const movementLayerArr = [
+  ['h', 'left_arrow'],
+  ['j', 'down_arrow'],
+  ['k', 'up_arrow'],
+  ['l', 'right_arrow'],
+  ['w', 'up_arrow'],
+  ['a', 'left_arrow'],
+  ['s', 'down_arrow'],
+  ['d', 'right_arrow'],
+  ['[', 'home'],
+  [']', 'end'],
+  [',', 'back_tab'],
+  ['.', 'tab'],
+] as ReadonlyArray<[FromKeyParam, string]>
+
+const shiftedKeyMap = {
+  '!': '1',
+  '@': '2',
+  '#': '3',
+  $: '4',
+  '%': '5',
+  '^': '6',
+  '&': '7',
+  '*': '8',
+  '(': '9',
+  ')': '0',
+  _: '-',
+  '+': '=',
+  ':': ';',
+  '"': "'",
+  '{': '[',
+  '}': ']',
+  '|': '\\',
+  '<': ',',
+  '>': '.',
+  '?': '/',
+  '~': '`',
+  back_tab: 'tab',
+} as Record<string, ToKeyParam>
+
 type ModTapArgs = {
   from: KeyCode
   tap: KeyCode
@@ -103,9 +160,20 @@ type ModTapArgs = {
   prioritize?: 'tap' | 'mod'
 }
 
+const getKeyMap = (
+  fr: FromKeyParam,
+  to: string,
+  mod?: FromModifierParam | undefined,
+) => {
+  if (shiftedKeyMap[to] !== undefined) {
+    return map(fr, mod).to(shiftedKeyMap[to], 'left_shift')
+  }
+  return map(fr, mod).to(to as ToKeyCode)
+}
+
 const modTap = (args: ModTapArgs): Manipulator => {
   let argv = {
-    timeout: 200,
+    timeout: 100,
     prioritize: 'tap',
     ...args,
   }
@@ -148,14 +216,16 @@ const modTap = (args: ModTapArgs): Manipulator => {
     },
   }
 
+  const tapKeyMap = { key_code: argv.tap }
+
   if (argv.prioritize === 'tap') {
     // if prioritizing tap, then use combination of halt and delayed actions
     // to prevent accidental mod key presses when rolling keys
     return {
       ...manipulator,
-      to_if_alone: [{ key_code: argv.tap, halt: true }],
+      to_if_alone: [{ ...tapKeyMap, halt: true }],
       to_delayed_action: {
-        to_if_canceled: [{ key_code: argv.tap }],
+        to_if_canceled: [tapKeyMap],
       },
       to_if_held_down: [{ ...modKey, lazy: true }],
       parameters: {
@@ -168,7 +238,7 @@ const modTap = (args: ModTapArgs): Manipulator => {
   return {
     ...manipulator,
     to: [modKey],
-    to_if_alone: [{ key_code: argv.tap }],
+    to_if_alone: [tapKeyMap],
     to_if_held_down: [modKey],
     parameters: {
       'basic.to_if_alone_timeout_milliseconds': argv.timeout,
@@ -180,37 +250,35 @@ const modTap = (args: ModTapArgs): Manipulator => {
 const main = (profile: string) => {
   writeToProfile(profile, [
     rule('simple key remaps').manipulators([
-      map(',', 'left_option').to('tab', 'left_shift'),
-      map('.', 'left_option').to('tab'),
+      getKeyMap(',', 'back_tab', 'left_option'),
+      getKeyMap('.', 'tab', 'left_option'),
     ]),
 
     // hyper key map must come before the home row mods
-    rule('hyper keys').manipulators([
-      ...hyperMapArr.map(([f, t]) => map(f, 'Hyper').to(t)),
-      map(',', 'Hyper').to('tab', 'left_shift'),
-      map('.', 'Hyper').to('tab'),
-    ]),
+    rule('hyper keys').manipulators(
+      movementLayerArr.map(([fr, to]) => getKeyMap(fr, to, 'Hyper')),
+    ),
 
-    layer('z', 'layer-sym1').manipulators([
-      ...symbolLayerArr.map(([fr, to]) => map(fr as FromKeyParam).toPaste(to)),
-      map('i').to('\\', 'left_shift'),
-      map('h').to('[', 'left_shift'),
-      map('j').to(']', 'left_shift'),
-      map('k').to('9', 'left_shift'),
-      map('l').to('0', 'left_shift'),
-      map(';').to('\\'),
-      map("'").to('\\', 'left_shift'),
-      map('n').to('-', 'left_shift'),
-      map('m').to('-'),
-      map(',').to(',', 'left_shift'),
-      map('.').to('.', 'left_shift'),
-    ]),
+    rule('option keys').manipulators(
+      symbolMapArr.map(([fr, to]) => getKeyMap(fr, to, 'left_option')),
+    ),
 
-    rule('Home Row Modifiers').manipulators(
-      homeRowModArr.map(([fr, to]) =>
+    layer('z', 'layer-sym1').manipulators(
+      pasteMapArr.map(([fr, to]) => map(fr as FromKeyParam).toPaste(to)),
+    ),
+
+    rule('Home Row Modifiers').manipulators([
+      ...homeRowModArr.map(([fr, to]) =>
         modTap({ from: fr, tap: fr, mod: to, prioritize: 'tap' }),
       ),
-    ),
+      modTap({
+        from: 'spacebar',
+        tap: 'spacebar',
+        mod: 'left_shift',
+        prioritize: 'mod',
+        timeout: 50,
+      }),
+    ]),
 
     rule('thumbs').manipulators([
       modTap({
@@ -232,7 +300,7 @@ const main = (profile: string) => {
         prioritize: 'mod',
       }),
     ]),
-    rule('double taps').manipulators([mapDoubleTap('j', 50).to('escape')]),
+    // rule('double taps').manipulators([mapDoubleTap('j', 50).to('escape')]),
 
     // rule('symbol chords').manipulators([
     //   mapSimultaneous(['v', 'b']).to('['),
